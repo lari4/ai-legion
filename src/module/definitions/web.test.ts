@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-import { GPT_3_5_TURBO } from "../../openai";
 import { getPageSummary, getSearchResults } from "./web";
 
 dotenv.config();
@@ -8,7 +7,7 @@ test.skip(
   "getPageSummary",
   async () => {
     await getPageSummary(
-      GPT_3_5_TURBO,
+      "gpt-3.5-turbo",
       // GPT_4,
       1000,
       "https://xenogothic.com/2022/12/23/patchwork-a-reflection/"
