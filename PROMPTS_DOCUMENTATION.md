@@ -64,3 +64,62 @@ ${availableActions}
 - `${CODE_BLOCK_DELIMITER}`: The markdown code block delimiter (` ``` `)
 - `${availableActions}`: Dynamically generated list of available actions with their descriptions
 
+---
+
+## State Management Prompts
+
+These prompts are "pinned" to the agent's context window, meaning they persist across conversation turns and won't be removed during memory summarization. They guide the agent in managing its goals and notes.
+
+### 2. Goals Management Pinned Prompt
+
+**Location:** `src/module/definitions/goals.ts:18-32`
+
+**Purpose:** This pinned message instructs the agent on how to manage its goal list. It establishes:
+- The responsibility to maintain goals based on higher-level objectives
+- The workflow: add a goal before starting, mark complete when finished
+- That goals should be medium-term (requiring several actions) and concrete
+- The persistence guarantee (won't be summarized away)
+- That goals should encapsulate given instructions, not be invented arbitrarily
+
+**Context:** This prompt is regenerated on each agent turn and includes the current state of all goals (both pending and completed). It's always visible to the agent, providing constant guidance on goal management.
+
+**Prompt:**
+```
+You are responsible for maintaining your list of goals, based on higher-level objectives which will be given to you. Whenever you start doing something, first add a goal. Whenever you finish doing something, mark it complete. This list of goals will always be pinned to the top of your context and won't be summarized away. Goals should be medium-term (requiring several actions to complete) and concrete. Do not invent goals out of nothing, they should encapsulate instructions that have been given to you.
+
+${currentGoals}
+```
+
+**Key Variables:**
+- `${currentGoals}`: Dynamically generated list showing either:
+  - "You have no goals currently." (if empty), or
+  - Numbered list of goals with format: `N) "goal text" [COMPLETE/PENDING]`
+
+**Related Actions:** `addGoal`, `completeGoal`
+
+### 3. Notes Management Pinned Prompt
+
+**Location:** `src/module/definitions/notes.ts:10-21`
+
+**Purpose:** This pinned message instructs the agent on how to manage its personal notes. It establishes:
+- The available actions for note management (`writeNote`, `viewNote`, `deleteNote`)
+- The use case: tracking important information of long-term interest
+- The advantage over goals: notes can store larger thoughts with both title and content
+- The persistence guarantee (won't be summarized away)
+
+**Context:** This prompt is regenerated on each agent turn and includes the current list of note titles. Like the goals prompt, it remains pinned to the context window for constant visibility.
+
+**Prompt:**
+```
+You can manage your notes using the `writeNote`, `viewNote` and `deleteNote` actions. Use notes to keep track of any important information that you come across that may be of longterm interest. Because notes contain content in addition to a title, you can store larger thoughts here which might not fit into the text of a goal. Your notes list will always be pinned to the top of your context and won't be summarized away.
+
+${currentNotes}
+```
+
+**Key Variables:**
+- `${currentNotes}`: Dynamically generated list showing either:
+  - "Your have no notes currently." (if empty), or
+  - Bulleted list of note titles with format: `- "note title"`
+
+**Related Actions:** `writeNote`, `viewNote`, `deleteNote`
+
