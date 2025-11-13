@@ -123,3 +123,61 @@ ${currentNotes}
 
 **Related Actions:** `writeNote`, `viewNote`, `deleteNote`
 
+---
+
+## Memory & Content Processing Prompts
+
+These prompts are used for specialized processing tasks: compressing agent memory when the context window fills up, and summarizing web content for agent consumption.
+
+### 4. Memory Summarization Prompt
+
+**Location:** `src/memory/memory.ts:154-156`
+
+**Purpose:** This prompt is invoked when the agent's context window approaches its token limit. It instructs the agent to:
+- Summarize a batch of historical events to free up context space
+- Focus on key learnable information worth remembering
+- Use second-person voice (as if briefing a replacement)
+- Omit recoverable information (like file contents that can be re-read)
+- Be information-dense while staying within the word limit
+- Output raw text instead of the usual action format
+
+**Context:** This is a critical memory management mechanism. When triggered, the agent receives events to summarize along with this prompt. The resulting summary replaces the original events, allowing the agent to continue operating with a full context window. The word limit is configurable (default appears to be calculated based on the number of events).
+
+**Prompt:**
+```
+Write a summary in ${summaryWordLimit} words or less of what has happened since (but not including) the introductory message. Include key information that you learned which you don't want to forget. This information will serve as a note to yourself to help you understand what has gone before. Use the second person voice, as if you are someone filling in your replacement who knows nothing. The summarized messages will be omitted from your context window going forward and you will only have this summary to go by, so make it as useful and information-dense as possible. Be as specific as possible, but only include important information. If there are details that seem unimportant, or which you could recover outside of your memory (for instance the particular contents of a file which you could read any time), then omit them from your summary. Once again, your summary must not exceed ${summaryWordLimit} words. In this particular instance, your response should just be raw text, not formatted as an action.
+```
+
+**Key Variables:**
+- `${summaryWordLimit}`: Dynamically calculated word limit based on the number of events being summarized
+
+**Output Format:** The summary is prefixed with: `"Several events are omitted here to free up space in your context window, summarized as follows:\n\n${summaryContent}"`
+
+### 5. Web Page Content Summarization Prompt
+
+**Location:** `src/module/definitions/web.ts:192-196`
+
+**Purpose:** This prompt is used when the agent fetches web pages that are too large to fit in the context window. It instructs the LLM to:
+- Reduce markdown content to fit under a specific character limit
+- Preserve the most essential information
+- Maintain original voice (not meta-describe the content)
+- Preserve hyperlinks in markdown format
+- Minimize modifications while meeting the size constraint
+
+**Context:** Web pages are fetched, converted to markdown, and split into chunks. Each chunk that exceeds the limit is processed with this prompt. The summarization happens in parallel for all chunks, then they're reassembled. This allows the agent to access web content without overwhelming its context window.
+
+**Prompt:**
+```
+Modify the following markdown excerpt only as much as necessary to bring it under a maximum of ${chunkSummaryLimitText}, preserving the most essential information. In particular, try to preserve links (example: `[my special link](https://foo.bar/baz/)`). Write this in the same voice as the original text; do not speak in the voice of someone who is describing it to someone else. For instance, don't use phrases like "The article talks about...". Excerpt to summarize follows:
+
+=============
+
+${chunk}
+```
+
+**Key Variables:**
+- `${chunkSummaryLimitText}`: Character limit for the summarized chunk (e.g., "2000 characters")
+- `${chunk}`: The markdown content to be summarized
+
+**Output Format:** Each summarized chunk is labeled as: `"=== SUMMARIZED CHUNK (${tokenCount} tokens) ==="`
+
