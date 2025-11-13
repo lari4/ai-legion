@@ -181,3 +181,135 @@ ${chunk}
 
 **Output Format:** Each summarized chunk is labeled as: `"=== SUMMARIZED CHUNK (${tokenCount} tokens) ==="`
 
+---
+
+## Utility & Maintenance Prompts
+
+These prompts handle system-level functions: keeping the agent active, formatting messages, and providing error feedback.
+
+### 6. Heartbeat Prompt
+
+**Location:** `src/agent.ts:48-49`
+
+**Purpose:** This is a periodic maintenance message designed to:
+- Prevent the agent from becoming idle indefinitely
+- Prompt the agent to check if any pending tasks need attention
+- Keep the agent's decision-making loop active
+
+**Context:** The heartbeat runs on a configurable interval (controlled by `heartbeatInterval` variable). It only fires when the last event was a decision (to avoid interrupting ongoing message processing). **Note:** As of the current codebase, heartbeats are disabled by default (the interval variable needs to be set to enable them).
+
+**Prompt:**
+```
+This is your regularly scheduled heartbeat message. Is there anything you need to do?
+```
+
+**Trigger Condition:**
+- Fires periodically (if enabled)
+- Only when `lastMessage.type === "decision"`
+
+**Expected Response:** The agent should respond with either a meaningful action (if there are pending tasks) or `noop` (if nothing requires attention).
+
+### 7. Message Formatting Templates
+
+**Location:** `src/make-decision.ts:26-49`
+
+**Purpose:** These templates add headers to different message types to provide context to the agent about the source and nature of each message. They help the agent distinguish between:
+- Regular system messages (no header)
+- Inter-agent communications (with sender identification)
+- Error notifications (clearly marked)
+
+**Context:** These templates are applied when converting events to OpenAI message format. They're part of the message preprocessing pipeline that happens before sending messages to the LLM.
+
+**Templates:**
+
+#### 7a. Agent-to-Agent Message Header
+```
+--- MESSAGE FROM ${agentName} ---
+
+${messageContent}
+```
+**Variables:**
+- `${agentName}`: The uppercase name of the sending agent
+
+**Use Case:** When one agent sends a message to another agent
+
+#### 7b. Error Message Header
+```
+--- ERROR ---
+
+${errorContent}
+```
+
+**Use Case:** When an action fails or produces an error
+
+#### 7c. Spontaneous/OK Message
+```
+${messageContent}
+```
+**Use Case:** System messages and successful action responses (no header added)
+
+### 8. Error Message Templates
+
+**Location:** Various module definition files
+
+**Purpose:** Provide clear, actionable error messages to guide the agent when operations fail. Each error template includes:
+- What went wrong
+- Why it's a problem
+- What the agent should do instead (when applicable)
+
+**Common Error Templates:**
+
+#### 8a. Unknown Action Error
+**Location:** `src/module/definitions/core.ts:105`
+```
+Unknown action `${actionName}`. Please refer to the list of available actions given in the introductory message.
+```
+**Use Case:** Agent attempts to invoke a non-existent action
+
+#### 8b. Self-Messaging Error
+**Location:** `src/module/definitions/messaging.ts:42`
+```
+You can't send a message to yourself. Use the `writeNote` action if you want to make notes for yourself.
+```
+**Use Case:** Agent tries to send a message to its own agent ID
+
+**Guidance:** Redirects the agent to use `writeNote` instead
+
+#### 8c. Invalid Agent ID Error
+**Location:** `src/module/definitions/messaging.ts:55-56`
+```
+You tried to send your message to an invalid targetAgentId (${targetAgentId}). You can use the 'queryAgentRegistry' action to see a list of available agents and their agent IDs.
+```
+**Use Case:** Agent tries to message a non-existent agent
+
+**Guidance:** Directs the agent to use `queryAgentRegistry` to find valid agents
+
+#### 8d. Invalid Goal Index Error
+**Location:** `src/module/definitions/goals.ts:70`
+```
+Invalid goal index: ${goalNumber}
+```
+**Use Case:** Agent tries to complete a goal with an out-of-range index
+
+#### 8e. Note Not Found Error
+**Location:** `src/module/definitions/notes.ts:68,90`
+```
+Note "${title}" not found.
+```
+**Use Case:** Agent tries to view or delete a non-existent note
+
+---
+
+## Summary
+
+The AI Legion prompt system is structured in layers:
+
+1. **Foundation Layer:** Core system prompt defines the agent's identity and action-based interaction model
+2. **Persistence Layer:** Pinned prompts (goals, notes) provide continuous context about agent state
+3. **Memory Layer:** Summarization prompts manage context window constraints
+4. **Processing Layer:** Content summarization enables handling large external data
+5. **Maintenance Layer:** Heartbeat and formatting ensure smooth operation
+6. **Feedback Layer:** Error templates guide the agent toward correct behavior
+
+All prompts use template literals with runtime variable injection, allowing dynamic adaptation to the agent's current state and environment.
+
